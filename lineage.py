@@ -11,7 +11,7 @@ from typing import List
 
 
 class Lineage:
-    def __init__(self, path: str = None, profiles_dir: str = "~/.dbt"):
+    def __init__(self, path: str = None, profiles_dir: str = "~/.dbt",__excluded__nodes__: list = []):
         if path is None:
             raise Exception("Path not specified.")
         f = open(os.path.join(path, "target", "manifest.json"))
@@ -26,6 +26,7 @@ class Lineage:
         # ORDER  BY attrelid::regclass;"""
         # )
         self.output_dict = {}
+        self.__excluded__nodes__ = __excluded__nodes__
         self._run_lineage()
 
     def _run_lineage(self) -> None:
@@ -38,6 +39,22 @@ class Lineage:
         # value = self.manifest['nodes'][key]
         for key, value in self.manifest["nodes"].items():
         # for key, value in islice(self.manifest['nodes'].items(), 3):
+            # ----------------------------------------
+            #      _      _                 
+            #     | |    | |                
+            #   __| | ___| |__  _   _  __ _ 
+            #  / _` |/ _ \ '_ \| | | |/ _` |
+            # | (_| |  __/ |_) | |_| | (_| |
+            #  \__,_|\___|_.__/ \__,_|\__, |
+            #                          __/ |
+            #                         |___/ 
+            #
+            # ----------------------------------------
+
+            if key in self.__excluded__nodes__ or (
+                len(key) > 4 and key[:4] == "seed"
+            ):
+                continue
             print(key, " completed")
             table_name = value["schema"] + "." + value["name"]
             self.output_dict[key] = {}
@@ -51,13 +68,30 @@ class Lineage:
             # col_names_new = self.table_cols_df[self.table_cols_df["table"] == table_name]
             # print(self.table_cols_df, col_names)
             cols = dbt_find_column(table_name=table_name, engine=self.faldbt)
-            col_lineage = ColumnLineage(
-                plan=plan["Plan"],
-                sql=ret_sql,
-                columns=cols,
-                conn=self.faldbt,
-                part_tables=self.part_tables,
-            )
+
+            # ----------------------------------------
+            #      _      _                 
+            #     | |    | |                
+            #   __| | ___| |__  _   _  __ _ 
+            #  / _` |/ _ \ '_ \| | | |/ _` |
+            # | (_| |  __/ |_) | |_| | (_| |
+            #  \__,_|\___|_.__/ \__,_|\__, |
+            #                          __/ |
+            #                         |___/ 
+            #
+            # ----------------------------------------
+
+            try:
+                col_lineage = ColumnLineage(
+                    plan=plan["Plan"],
+                    sql=ret_sql,
+                    columns=cols,
+                    conn=self.faldbt,
+                    part_tables=self.part_tables,
+                )
+            except:
+                print("FUCK U")
+                print(plan)
             self.output_dict[key]["tables"] = col_lineage.table_list
             self.output_dict[key]["columns"] = col_lineage.column_dict
             self.output_dict[key]["table_name"] = table_name
